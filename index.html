@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Análisis descriptivo cuantitativo · Atún enlatado</title>
+<style>
+:root {
+  --bg: #eef4f6; --card: #ffffff; --text: #14303d; --muted: #5d7480;
+  --accent: #1f6f8b; --accent-soft: #dceef4; --line: #cfdde3; --err: #c0392b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1e26; --card: #172a33; --text: #e6f1f4; --muted: #8fa6b0;
+    --accent: #5fb3cc; --accent-soft: #1d3b47; --line: #2c4550; --err: #ff8a7a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 0 14px; }
+main { max-width: 680px; margin: 0 auto; padding: 16px 0 40px; }
+h1 { font-size: 1.3rem; margin: 0 0 4px; }
+h2 { font-size: 1rem; margin: 0 0 2px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+.muted { color: var(--muted); font-size: .9rem; }
+.grupo { font-size: .72rem; letter-spacing: 1.5px; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.chip { background: var(--accent-soft); color: var(--accent); font-weight: 700; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 8px; font-size: .95rem; }
+label.campo { display: block; font-size: .9rem; color: var(--muted); margin: 12px 0 4px; }
+input[type=text], input[type=date], textarea, select {
+  width: 100%; padding: 11px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--card); color: var(--text); font: inherit; }
+textarea { min-height: 70px; resize: vertical; }
+.fila { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; margin: 6px 0; }
+.fila .chip { text-align: center; padding: 6px 0; }
+.anclas { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); margin: 2px 0 0 62px; }
+input[type=range] { width: 100%; height: 34px; accent-color: var(--accent); margin: 0; }
+input[type=range].sin-marcar::-webkit-slider-thumb { opacity: 0; }
+input[type=range].sin-marcar::-moz-range-thumb { opacity: 0; }
+.btn { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 14px 18px;
+  font: inherit; font-weight: 600; cursor: pointer; width: 100%; min-height: 50px; margin-top: 8px; }
+.btn.sec { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.btn:disabled { opacity: .6; }
+.err { color: var(--err); font-size: .9rem; min-height: 1.2em; margin-top: 8px; }
+.progreso { font-size: .9rem; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+/* ===================== CONFIGURACIÓN ===================== */
+const CONFIG = {
+  titulo: "Cuestionario de análisis descriptivo cuantitativo",
+  subtitulo: "Atún enlatado",
+  instrucciones: [
+    "Frente a usted se presentan muestras codificadas de atún. Evalúe cada muestra considerando exclusivamente la intensidad del atributo indicado.",
+    "Para cada escala lineal, mueva la línea a la posición que represente mejor la intensidad, desde MENOS hasta MÁS. La línea no muestra valores numéricos.",
+    "Responda todas las preguntas obligatorias antes de enviar. No evalúe agrado o desagrado en las preguntas de intensidad."
+  ],
+  endpoint: "PEGAR_URL_DE_APPS_SCRIPT",
+  codigos: ["371", "528", "694", "147", "856"],
+  escalaHedonica: ["Me disgusta muchísimo", "Me disgusta mucho", "Me disgusta moderadamente",
+    "Me disgusta ligeramente", "Ni me gusta ni me disgusta", "Me gusta ligeramente",
+    "Me gusta moderadamente", "Me gusta mucho", "Me gusta muchísimo"],
+
+  /*
+   * Cada pregunta es un objeto. Campos:
+   *  id        : nombre único (sin espacios). Va a la columna "pregunta" de la hoja.
+   *  grupo     : título de la sección (opcional)
+   *  tipo      : "lineal" | "hedonica" | "categoria" | "texto"
+   *  nombre    : texto de la pregunta
+   *  def       : descripción (opcional)
+   *  izq, der  : anclas de la escala lineal
+   *  opciones  : lista de opciones (solo para "categoria")
+   *  opcional  : true si no es obligatoria (solo "texto")
+   *  por_muestra : false para un comentario general en vez de uno por muestra (solo "texto")
+   */
+  preguntas: [
+    { id: "color_rosado", grupo: "Vista", tipo: "lineal", nombre: "Intensidad de color rosado",
+      def: "Grado de tonalidad rosada observable en la carne del atún.", izq: "Menos", der: "Más" },
+    { id: "brillo", grupo: "Vista", tipo: "lineal", nombre: "Brillo superficial",
+      def: "Grado de luminosidad o reflexión observable en la superficie del producto.", izq: "Menos", der: "Más" },
+    { id: "aroma_metalico", grupo: "Olfato", tipo: "lineal", nombre: "Aroma metálico",
+      def: "Intensidad de notas aromáticas asociadas con metal o carácter ferroso.", izq: "Menos", der: "Más" },
+    { id: "aroma_marino", grupo: "Olfato", tipo: "lineal", nombre: "Aroma marino",
+      def: "Intensidad de notas aromáticas asociadas con pescado y ambiente marino.", izq: "Menos", der: "Más" },
+    { id: "aroma_atun", grupo: "Olfato", tipo: "lineal", nombre: "Aroma a atún",
+      def: "Intensidad del aroma característico del atún cocido/enlatado.", izq: "Menos", der: "Más" },
+    { id: "sabor_salado", grupo: "Gusto", tipo: "lineal", nombre: "Sabor salado",
+      def: "Intensidad de la sensación salada percibida durante la degustación.", izq: "Menos", der: "Más" },
+    { id: "sabor_metalico", grupo: "Gusto", tipo: "lineal", nombre: "Sabor metálico",
+      def: "Intensidad de la sensación gustativa metálica o ferrosa.", izq: "Menos", der: "Más" },
+    { id: "desmenuzabilidad", grupo: "Tacto / textura", tipo: "lineal", nombre: "Desmenuzabilidad",
+      def: "Facilidad con la que la carne se separa en fibras o fragmentos al manipularla o masticarla.", izq: "Menos", der: "Más" }
+
+    /* EJEMPLOS PARA AGREGAR (copie el bloque, quite los /* y */ si lo necesita):
+    { id: "agrado", grupo: "Aceptación", tipo: "hedonica", nombre: "¿Qué tanto le agrada la muestra?" },
+    { id: "dulzor", grupo: "Gusto", tipo: "categoria", nombre: "Intensidad de dulzor",
+      opciones: ["Nulo", "Ligero", "Moderado", "Fuerte", "Muy fuerte"] },
+    { id: "comentario", grupo: "Comentarios", tipo: "texto", nombre: "Comentarios sobre la muestra", opcional: true },
+    { id: "comentario_general", grupo: "Comentarios", tipo: "texto", nombre: "Comentario general", por_muestra: false, opcional: true }
+    */
+  ]
+};
+
+/* ===================== ESTADO ===================== */
+const app = document.getElementById("app");
+const estado = { orden: [], respuestas: {}, juez: "", fecha: "", observaciones: "", error: "" };
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hoy = () => new Date().toISOString().slice(0, 10);
+function barajar(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const porMuestra = p => p.por_muestra !== false;
+const valor = (p, c) => (estado.respuestas[p.id] ? estado.respuestas[p.id][c] : undefined);
+
+/* Lista de casillas que hay que llenar (sin las opcionales) */
+function casillas() {
+  const out = [];
+  CONFIG.preguntas.forEach(p => {
+    if (p.tipo === "texto" && p.opcional) return;
+    if (p.tipo === "texto" && !porMuestra(p)) { out.push({ p, c: "general" }); return; }
+    estado.orden.forEach(c => out.push({ p, c }));
+  });
+  return out;
+}
+
+/* ===================== CONTROLES ===================== */
+function control(p, c) {
+  const v = valor(p, c);
+  const d = `data-p="${esc(p.id)}" data-c="${esc(c)}" data-tipo="${p.tipo}"`;
+  if (p.tipo === "lineal") {
+    return `<input type="range" min="0" max="100" value="${v ?? 50}" class="${v === undefined ? "sin-marcar" : ""}" ${d}>`;
+  }
+  if (p.tipo === "hedonica") {
+    const ops = CONFIG.escalaHedonica.map((t, i) =>
+      `<option value="${i + 1}" ${v === i + 1 ? "selected" : ""}>${i + 1} · ${esc(t)}</option>`).join("");
+    return `<select ${d}><option value="">Elija una opción</option>${ops}</select>`;
+  }
+  if (p.tipo === "categoria") {
+    const ops = p.opciones.map(o =>
+      `<option value="${esc(o)}" ${v === o ? "selected" : ""}>${esc(o)}</option>`).join("");
+    return `<select ${d}><option value="">Elija una opción</option>${ops}</select>`;
+  }
+  if (p.tipo === "texto") {
+    return `<textarea ${d} placeholder="Escriba aquí…">${esc(v ?? "")}</textarea>`;
+  }
+  return "";
+}
+
+function bloque(p) {
+  const cab = `${p.grupo ? `<div class="grupo">${esc(p.grupo)}</div>` : ""}
+    <h2>${esc(p.nombre)}${p.opcional ? ' <span class="muted">(opcional)</span>' : ""}</h2>
+    ${p.def ? `<div class="muted">${esc(p.def)}</div>` : ""}`;
+  let cuerpo;
+  if (p.tipo === "texto" && !porMuestra(p)) {
+    cuerpo = `<div style="margin-top:10px">${control(p, "general")}</div>`;
+  } else {
+    cuerpo = `<div style="margin-top:10px">${estado.orden.map(c =>
+      `<div class="fila"><span class="chip">${esc(c)}</span>${control(p, c)}</div>`).join("")}</div>`;
+  }
+  const anclas = p.tipo === "lineal"
+    ? `<div class="anclas"><span>${esc(p.izq || "Menos")}</span><span>${esc(p.der || "Más")}</span></div>`
+    : "";
+  return `<div class="card">${cab}${cuerpo}${anclas}</div>`;
+}
+
+/* ===================== PANTALLAS ===================== */
+function formulario() {
+  const total = casillas().length;
+  const hechos = casillas().filter(x => { const v = valor(x.p, x.c); return v !== undefined && v !== ""; }).length;
+  app.innerHTML = `
+    <div class="card">
+      <div class="grupo">Análisis descriptivo</div>
+      <h1>${esc(CONFIG.titulo)}</h1>
+      <div class="muted">${esc(CONFIG.subtitulo)}</div>
+      <div style="margin-top:12px">${CONFIG.instrucciones.map(t => `<p class="muted" style="margin:6px 0">${esc(t)}</p>`).join("")}</div>
+      <label class="campo" for="juez">Código del juez</label>
+      <input type="text" id="juez" value="${esc(estado.juez)}" autocomplete="off">
+      <label class="campo" for="fecha">Fecha</label>
+      <input type="date" id="fecha" value="${esc(estado.fecha)}">
+      <label class="campo">Códigos de las muestras evaluadas</label>
+      <div class="chips">${estado.orden.map(c => `<span class="chip">${esc(c)}</span>`).join("")}</div>
+      <div class="progreso" id="progreso">Respuestas registradas: ${hechos} de ${total}</div>
+    </div>
+    ${CONFIG.preguntas.map(bloque).join("")}
+    <div class="card">
+      <label class="campo" for="obs">Observaciones generales</label>
+      <textarea id="obs">${esc(estado.observaciones)}</textarea>
+      <div class="err" id="err">${esc(estado.error)}</div>
+      <button class="btn" id="enviar">Enviar evaluación</button>
+    </div>`;
+  document.getElementById("enviar").onclick = enviar;
+}
+
+function actualizarProgreso() {
+  const s = casillas();
+  const hechos = s.filter(x => { const v = valor(x.p, x.c); return v !== undefined && v !== ""; }).length;
+  const el = document.getElementById("progreso");
+  if (el) el.textContent = `Respuestas registradas: ${hechos} de ${s.length}`;
+}
+
+function gracias() {
+  app.innerHTML = `
+    <div class="card" style="text-align:center;padding:36px 18px">
+      <h1>Evaluación registrada</h1>
+      <p class="muted">Gracias por su participación.</p>
+      <button class="btn sec" id="otra">Registrar otra evaluación</button>
+    </div>`;
+  document.getElementById("otra").onclick = nueva;
+}
+
+function nueva() {
+  estado.respuestas = {}; estado.observaciones = ""; estado.error = "";
+  estado.juez = ""; estado.fecha = hoy();
+  estado.orden = barajar(CONFIG.codigos);
+  formulario();
+}
+
+/* ===================== ENVÍO ===================== */
+async function enviar() {
+  const juez = estado.juez.trim();
+  if (!juez) { estado.error = "Escriba su código de juez."; return formulario(); }
+  const faltan = casillas().filter(x => { const v = valor(x.p, x.c); return v === undefined || v === ""; });
+  if (faltan.length) {
+    estado.error = `Faltan ${faltan.length} respuestas obligatorias. Revise todas las preguntas.`;
+    return formulario();
+  }
+  if (CONFIG.endpoint.startsWith("PEGAR")) {
+    estado.error = "Configuración pendiente: falta el endpoint de la hoja de cálculo.";
+    return formulario();
+  }
+  const btn = document.getElementById("enviar");
+  btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    await fetch(CONFIG.endpoint, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        juez,
+        fecha: estado.fecha || hoy(),
+        orden: estado.orden,
+        tipos: Object.fromEntries(CONFIG.preguntas.map(p => [p.id, p.tipo])),
+        respuestas: estado.respuestas,
+        observaciones: estado.observaciones,
+        creado: new Date().toISOString()
+      })
+    });
+    gracias();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Enviar evaluación";
+    estado.error = "No se pudo enviar. Revise su conexión e intente de nuevo.";
+    formulario();
+  }
+}
+
+/* ===================== EVENTOS Y ARRANQUE ===================== */
+app.addEventListener("input", e => {
+  const el = e.target;
+  if (el.id === "juez") { estado.juez = el.value; return; }
+  if (el.id === "fecha") { estado.fecha = el.value; return; }
+  if (el.id === "obs") { estado.observaciones = el.value; return; }
+  const p = el.dataset.p;
+  if (!p) return;
+  const c = el.dataset.c, tipo = el.dataset.tipo;
+  let v = el.value;
+  if (tipo === "lineal") { v = Number(v); el.classList.remove("sin-marcar"); }
+  if (tipo === "hedonica" && v !== "") v = Number(v);
+  estado.respuestas[p] = estado.respuestas[p] || {};
+  if (v === "") delete estado.respuestas[p][c];
+  else estado.respuestas[p][c] = v;
+  estado.error = "";
+  actualizarProgreso();
+});
+
+estado.orden = barajar(CONFIG.codigos);
+estado.fecha = hoy();
+formulario();
+</script>
+</body>
+</html>
